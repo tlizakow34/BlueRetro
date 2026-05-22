@@ -57,7 +57,7 @@ void bt_hid_cmd_ps3_set_conf(struct bt_dev *device, void *report) {
         set_conf->leds = (0x02 << 1); 
     }
 
-    set_conf->leds = (0x02 << 1) //remove later
+    set_conf->leds = (0x02 << 1); //remove later
 
     // Now send the packet (with your forced LED value)
     bt_hid_cmd(device->acl_handle, device->ctrl_chan.dcid, BT_HIDP_SET_OUT, BT_HIDP_PS3_SET_CONF, sizeof(*set_conf));
