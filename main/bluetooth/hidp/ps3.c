@@ -116,6 +116,10 @@ void bt_hid_ps3_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                     static uint8_t swap_triggered = 0; 
                     
                     if ((bt_hci_acl_pkt->hidp_data[2] & 0x07) == 0x07) {
+                        struct bt_hidp_ps3_set_conf blink;
+                        memcpy(&blink, ps3_config, sizeof(ps3_config));
+                        blink.leds = (0x08 << 1); 
+                        bt_hid_cmd_ps3_set_conf(device, &blink);
                         if (!swap_triggered) {
                             swap_triggered = 1; // Lock trigger
                             printf("# Custom Combo: Toggling PS3 LED directly...\n");
