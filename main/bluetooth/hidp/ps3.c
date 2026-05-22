@@ -128,7 +128,7 @@ void bt_hid_ps3_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                     } else {
                         // The user let go of the buttons. Reset the lock.
                         swap_triggered = false;
-                        force_led_override = false
+                        force_led_override = false;
                     }
 
                     // Proceed with normal gameplay input routing
