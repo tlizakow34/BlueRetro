@@ -115,7 +115,7 @@ void bt_hid_ps3_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                     // Select (0x01) + L3 (0x02) + R3 (0x04) + Start (0x08)
                     // ========================================== 
                     
-                    if ((bt_hci_acl_pkt->hidp_data[2] & 0x01) == 0x01) {
+                    if ((bt_hci_acl_pkt->hidp_data[3] & 0x01) == 0x01) {
                         if (!swap_triggered) {
                             force_led_override = !force_led_override;
                             swap_triggered = true; // Lock trigger
