@@ -11,7 +11,7 @@
 #include "ps3.h"
 
 static bool force_led_override = false;
-static uint8_t swap_triggered = 0;
+static bool swap_triggered = false;
 
 static const uint8_t bt_init_magic[] = {
     0x42, 0x03, 0x00, 0x00
@@ -56,8 +56,6 @@ void bt_hid_cmd_ps3_set_conf(struct bt_dev *device, void *report) {
     if (force_led_override) {
         set_conf->leds = (0x02 << 1); 
     }
-
-    set_conf->leds = (0x02 << 1); //remove later
 
     // Now send the packet (with your forced LED value)
     bt_hid_cmd(device->acl_handle, device->ctrl_chan.dcid, BT_HIDP_SET_OUT, BT_HIDP_PS3_SET_CONF, sizeof(*set_conf));
@@ -117,9 +115,10 @@ void bt_hid_ps3_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                     // Select (0x01) + L3 (0x02) + R3 (0x04) + Start (0x08)
                     // ========================================== 
                     
-                    if ((bt_hci_acl_pkt->hidp_data[2] & 0x07) == 0x07) {
+                    if ((bt_hci_acl_pkt->hidp_data[2] & 0x01) == 0x01) {
+                        force_led_override = true;
                         if (!swap_triggered) {
-                            swap_triggered = 1; // Lock trigger
+                            swap_triggered = true; // Lock trigger
                             printf("# Custom Combo: Toggling PS3 LED directly...\n");
                             // 1. Toggle our hijacked visual state variable
                             config.in_cfg[0].bt_subdev_id = (config.in_cfg[0].bt_subdev_id == 0) ? 1 : 0;
@@ -128,7 +127,8 @@ void bt_hid_ps3_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                         }
                     } else {
                         // The user let go of the buttons. Reset the lock.
-                        swap_triggered = 0; 
+                        swap_triggered = false;
+                        force_led_override = false
                     }
 
                     // Proceed with normal gameplay input routing
