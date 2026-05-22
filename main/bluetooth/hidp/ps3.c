@@ -46,6 +46,10 @@ static void bt_hid_ps3_init_callback(void *arg) {
 void bt_hid_cmd_ps3_set_conf(struct bt_dev *device, void *report) {
     struct bt_hidp_ps3_set_conf *set_conf = (struct bt_hidp_ps3_set_conf *)bt_hci_pkt_tmp.hidp_data;
     memcpy((void *)set_conf, report, sizeof(*set_conf));
+    //Added:
+    uint8_t target_led_idx = (config.in_cfg[0].bt_subdev_id == 1) ? 1 : 0;
+    set_conf->leds = (bt_hid_led_dev_id_map[target_led_idx] << 1);
+    //^^^Added:
     bt_hid_cmd(device->acl_handle, device->ctrl_chan.dcid, BT_HIDP_SET_OUT, BT_HIDP_PS3_SET_CONF, sizeof(*set_conf));
 }
 
@@ -119,21 +123,14 @@ void bt_hid_ps3_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                             // 1. Toggle our hijacked visual state variable
                             config.in_cfg[0].bt_subdev_id = (config.in_cfg[0].bt_subdev_id == 0) ? 1 : 0;
 
-                            // 2. Save visual preference to flash
+                            // 2. Save visual preference to physical flash memory
                             config_update(config_get_src());
 
-                            // 3. SEND DIRECT PS3 LED COMMAND (Leaves player config untouched)
-                            struct bt_hidp_ps3_set_conf set_conf;
-                            
-                            // Load the default PS3 configuration packet layout
-                            memcpy(&set_conf, ps3_config, sizeof(ps3_config)); 
-                            
-                            // Manually overwrite just the LED byte based on our saved variable
-                            uint8_t target_led_idx = (config.in_cfg[0].bt_subdev_id == 1) ? 1 : 0;
-                            set_conf.leds = (bt_hid_led_dev_id_map[target_led_idx] << 1);
-                            
-                            // Blast the command straight to this specific PS3 controller
-                            bt_hid_cmd_ps3_set_conf(device, &set_conf);
+                            // 3. Force the adapter to push an update immediately.
+                            // The choke point at the top of the file will automatically catch this 
+                            // and inject the correct LED byte!
+                            struct bt_data *bt_data = &bt_adapter.data[device->ids.id];
+                            bt_hid_cmd_ps3_set_conf(device, bt_data->base.output);
                         }
                     } else {
                         // The user let go of the buttons. Reset the lock.
