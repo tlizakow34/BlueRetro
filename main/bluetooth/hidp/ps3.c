@@ -116,8 +116,8 @@ void bt_hid_ps3_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                     // ========================================== 
                     
                     if ((bt_hci_acl_pkt->hidp_data[2] & 0x01) == 0x01) {
-                        force_led_override = true;
                         if (!swap_triggered) {
+                            force_led_override = !force_led_override;
                             swap_triggered = true; // Lock trigger
                             printf("# Custom Combo: Toggling PS3 LED directly...\n");
                             // 1. Toggle our hijacked visual state variable
@@ -128,7 +128,6 @@ void bt_hid_ps3_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                     } else {
                         // The user let go of the buttons. Reset the lock.
                         swap_triggered = false;
-                        force_led_override = false;
                     }
 
                     // Proceed with normal gameplay input routing
