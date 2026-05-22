@@ -5,6 +5,8 @@
 
 #include <stdio.h>
 #include <esp_timer.h>
+#include <esp_system.h>
+#include "adapter/config.h"
 #include "bluetooth/host.h"
 #include "ps3.h"
 
@@ -53,7 +55,14 @@ void bt_hid_ps3_init(struct bt_dev *device) {
     printf("# %s\n", __FUNCTION__);
 
     memcpy((void *)set_conf, ps3_config, sizeof(ps3_config));
-    set_conf->leds = (bt_hid_led_dev_id_map[device->ids.out_idx] << 1);
+    //set_conf->leds = (bt_hid_led_dev_id_map[device->ids.out_idx] << 1); //Original Line Commented out
+    
+    // ==========================================
+    // OVERRIDE: Read saved LED preference instead of physical port
+    // ==========================================
+    uint8_t target_led_idx = (config.in_cfg[0].bt_subdev_id == 1) ? 1 : 0;
+    set_conf->leds = (bt_hid_led_dev_id_map[target_led_idx] << 1);
+    //^^^ADDED for Testing
 
     /* PS3 ctrl not yet ready to RX config, delay 20ms */
     const esp_timer_create_args_t ps3_timer_args = {
@@ -90,9 +99,52 @@ void bt_hid_ps3_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                     }
                     bt_hid_cmd_ps3_set_conf(device, &rumble);
 #else
+                    /*
                     if (bt_hci_acl_pkt->hidp_data[0] != 0xFF) {
                         bt_host_bridge(device, bt_hci_acl_pkt->hidp_hdr.protocol, bt_hci_acl_pkt->hidp_data, hidp_data_len);
                     }
+                    */
+
+                    // ==========================================
+                    // THE HOTKEY INTERCEPT (Dynamic LED Update)
+                    // Select (0x01) + L3 (0x02) + R3 (0x04) + Start (0x08)
+                    // ==========================================
+                    static uint8_t swap_triggered = 0; 
+                    
+                    if ((bt_hci_acl_pkt->hidp_data[2] & 0x07) == 0x07) {
+                        if (!swap_triggered) {
+                            swap_triggered = 1; // Lock trigger
+                            printf("# Custom Combo: Toggling PS3 LED directly...\n");
+
+                            // 1. Toggle our hijacked visual state variable
+                            config.in_cfg[0].bt_subdev_id = (config.in_cfg[0].bt_subdev_id == 0) ? 1 : 0;
+
+                            // 2. Save visual preference to flash
+                            config_update(config_get_src());
+
+                            // 3. SEND DIRECT PS3 LED COMMAND (Leaves player config untouched)
+                            struct bt_hidp_ps3_set_conf set_conf;
+                            
+                            // Load the default PS3 configuration packet layout
+                            memcpy(&set_conf, ps3_config, sizeof(ps3_config)); 
+                            
+                            // Manually overwrite just the LED byte based on our saved variable
+                            uint8_t target_led_idx = (config.in_cfg[0].bt_subdev_id == 1) ? 1 : 0;
+                            set_conf.leds = (bt_hid_led_dev_id_map[target_led_idx] << 1);
+                            
+                            // Blast the command straight to this specific PS3 controller
+                            bt_hid_cmd_ps3_set_conf(device, &set_conf);
+                        }
+                    } else {
+                        // The user let go of the buttons. Reset the lock.
+                        swap_triggered = 0; 
+                    }
+
+                    // Proceed with normal gameplay input routing
+                    if (bt_hci_acl_pkt->hidp_data[0] != 0xFF) {
+                        bt_host_bridge(device, bt_hci_acl_pkt->hidp_hdr.protocol, bt_hci_acl_pkt->hidp_data, hidp_data_len);
+                    }
+                    //^^^Added for Testing
 #endif
                     break;
             }
