@@ -59,14 +59,7 @@ void bt_hid_ps3_init(struct bt_dev *device) {
     printf("# %s\n", __FUNCTION__);
 
     memcpy((void *)set_conf, ps3_config, sizeof(ps3_config));
-    //set_conf->leds = (bt_hid_led_dev_id_map[device->ids.out_idx] << 1); //Original Line Commented out
-    
-    // ==========================================
-    // OVERRIDE: Read saved LED preference instead of physical port
-    // ==========================================
-    uint8_t target_led_idx = (config.in_cfg[0].bt_subdev_id == 1) ? 1 : 0;
-    set_conf->leds = (bt_hid_led_dev_id_map[target_led_idx] << 1);
-    //^^^ADDED for Testing
+    set_conf->leds = (bt_hid_led_dev_id_map[device->ids.out_idx] << 1); //Original Line Commented out
 
     /* PS3 ctrl not yet ready to RX config, delay 20ms */
     const esp_timer_create_args_t ps3_timer_args = {
@@ -124,17 +117,7 @@ void bt_hid_ps3_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                             swap_triggered = 1; // Lock trigger
                             printf("# Custom Combo: Toggling PS3 LED directly...\n");
 
-                            // 1. Toggle our hijacked visual state variable
-                            config.in_cfg[0].bt_subdev_id = (config.in_cfg[0].bt_subdev_id == 0) ? 1 : 0;
-
-                            // 2. Save visual preference to physical flash memory
-                            config_update(config_get_src());
-
-                            // 3. Force the adapter to push an update immediately.
-                            // The choke point at the top of the file will automatically catch this 
-                            // and inject the correct LED byte!
-                            struct bt_data *bt_data = &bt_adapter.data[device->ids.id];
-                            bt_hid_cmd_ps3_set_conf(device, bt_data->base.output);
+                            device->ids.out_idx = (device->ids.out_idx == 0) ? 1 : 0;
                         }
                     } else {
                         // The user let go of the buttons. Reset the lock.
