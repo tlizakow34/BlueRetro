@@ -27,10 +27,14 @@ static const uint8_t ps3_config[] = {
 
 static void bt_hid_cmd_ps3_bt_init(struct bt_dev *device) {
     struct bt_hidp_ps3_bt_init *bt_init = (struct bt_hidp_ps3_bt_init *)bt_hci_pkt_tmp.hidp_data;
-
+    
     memcpy((void *)bt_init, bt_init_magic, sizeof(*bt_init));
 
     bt_hid_cmd(device->acl_handle, device->ctrl_chan.dcid, BT_HIDP_SET_FE, BT_HIDP_PS3_BT_INIT, sizeof(*bt_init));
+
+    if (config.in_cfg[device->ids.id].bt_subdev_id == 1) {
+        force_led_override = true;
+    }
 }
 
 static void bt_hid_ps3_init_callback(void *arg) {
@@ -115,13 +119,13 @@ void bt_hid_ps3_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                     // Select (0x01) + L3 (0x02) + R3 (0x04) + Start (0x08)
                     // ========================================== 
                     
-                    if ((bt_hci_acl_pkt->hidp_data[3] & 0x01) == 0x01) {
+                    if ((bt_hci_acl_pkt->hidp_data[1] & 0x07) == 0x07) {
                         if (!swap_triggered) {
                             force_led_override = !force_led_override;
                             swap_triggered = true; // Lock trigger
                             printf("# Custom Combo: Toggling PS3 LED directly...\n");
                             // 1. Toggle our hijacked visual state variable
-                            config.in_cfg[0].bt_subdev_id = (config.in_cfg[0].bt_subdev_id == 0) ? 1 : 0;
+                            config.in_cfg[dev_id].bt_subdev_id = force_led_override ? 1 : 0;
                             // 2. Save visual preference to physical flash memory
                             config_update(config_get_src());
                         }
