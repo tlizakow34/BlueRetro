@@ -10,6 +10,9 @@
 #include "bluetooth/host.h"
 #include "ps3.h"
 
+static bool force_led_override = false;
+static uint8_t swap_triggered = 0;
+
 static const uint8_t bt_init_magic[] = {
     0x42, 0x03, 0x00, 0x00
 };
@@ -46,10 +49,17 @@ static void bt_hid_ps3_init_callback(void *arg) {
 void bt_hid_cmd_ps3_set_conf(struct bt_dev *device, void *report) {
     struct bt_hidp_ps3_set_conf *set_conf = (struct bt_hidp_ps3_set_conf *)bt_hci_pkt_tmp.hidp_data;
     memcpy((void *)set_conf, report, sizeof(*set_conf));
-    //Added:
-    uint8_t target_led_idx = (config.in_cfg[0].bt_subdev_id == 1) ? 1 : 0;
-    set_conf->leds = (bt_hid_led_dev_id_map[target_led_idx] << 1);
-    //^^^Added:
+
+    // THE OVERRIDE:
+    // If the override is active, force the LED to Player 2 (0x02 << 1)
+    // regardless of what the rest of the system wants to do.
+    if (force_led_override) {
+        set_conf->leds = (0x02 << 1); 
+    }
+
+    set_conf->leds = (0x02 << 1) //remove later
+
+    // Now send the packet (with your forced LED value)
     bt_hid_cmd(device->acl_handle, device->ctrl_chan.dcid, BT_HIDP_SET_OUT, BT_HIDP_PS3_SET_CONF, sizeof(*set_conf));
 }
 
@@ -105,19 +115,16 @@ void bt_hid_ps3_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                     // ==========================================
                     // THE HOTKEY INTERCEPT (Dynamic LED Update)
                     // Select (0x01) + L3 (0x02) + R3 (0x04) + Start (0x08)
-                    // ==========================================
-                    static uint8_t swap_triggered = 0; 
+                    // ========================================== 
                     
                     if ((bt_hci_acl_pkt->hidp_data[2] & 0x07) == 0x07) {
-                        struct bt_hidp_ps3_set_conf blink;
-                        memcpy(&blink, ps3_config, sizeof(ps3_config));
-                        blink.leds = (0x08 << 1); 
-                        bt_hid_cmd_ps3_set_conf(device, &blink);
                         if (!swap_triggered) {
                             swap_triggered = 1; // Lock trigger
                             printf("# Custom Combo: Toggling PS3 LED directly...\n");
-
-                            device->ids.out_idx = (device->ids.out_idx == 0) ? 1 : 0;
+                            // 1. Toggle our hijacked visual state variable
+                            config.in_cfg[0].bt_subdev_id = (config.in_cfg[0].bt_subdev_id == 0) ? 1 : 0;
+                            // 2. Save visual preference to physical flash memory
+                            config_update(config_get_src());
                         }
                     } else {
                         // The user let go of the buttons. Reset the lock.
