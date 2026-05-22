@@ -125,7 +125,7 @@ void bt_hid_ps3_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                             swap_triggered = true; // Lock trigger
                             printf("# Custom Combo: Toggling PS3 LED directly...\n");
                             // 1. Toggle our hijacked visual state variable
-                            config.in_cfg[dev_id].bt_subdev_id = force_led_override ? 1 : 0;
+                            config.in_cfg[device->ids.id].bt_subdev_id = force_led_override ? 1 : 0;
                             // 2. Save visual preference to physical flash memory
                             config_update(config_get_src());
                         }
